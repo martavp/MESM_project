@@ -1,0 +1,1 @@
+TODO: Add p_nom_max in generators, add Kirchhoff formulation
