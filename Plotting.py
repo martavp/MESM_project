@@ -144,22 +144,18 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
                    .unstack().fillna(0.))
         costs = pd.concat([costs, costs_c], axis=1)
         capacity = pd.concat([capacity, capacity_c], axis=1)
-    plot = capacity.groupby(capacity.columns, axis=1).sum() #costs.groupby(costs.columns, axis=1).sum()
-#     try:
-#         plot.drop(index=['H2 pipeline',''],inplace=True)
-#     except:
-#         print('No H2 pipeline to drop')
+    plot = capacity.groupby(capacity.columns, axis=1).sum()
+
     plot.drop(columns=plot.sum().loc[plot.sum() < threshold].index,inplace=True)
     technologies = plot.columns
     plot.drop(list(plot.columns[(plot == 0.).all()]), axis=1, inplace=True)
-    new_columns = ((preferred_order & plot.columns)
-                   .append(plot.columns.difference(preferred_order)))
+    new_columns = preferred_order[preferred_order.isin(plot.columns)]
     plot = plot[new_columns]
     for item in new_columns:
         if item not in tech_colors:
             print("Warning!",item,"not defined in tech_colors")
     plot = plot.stack()  # .sort_index()
-    to_drop = plot.index.levels[0] ^ n.buses.index
+    to_drop = plot.index.levels[0].symmetric_difference(n.buses.index)
     if len(to_drop) != 0:
         print("dropping non-buses", to_drop)
         plot.drop(to_drop, level=0, inplace=True, axis=0)
@@ -171,7 +167,7 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
     linewidth_factor = 50
     ac_color = "gray"
     dc_color = "m"
-    links = n.links #[n.links.carrier == 'DC']
+    links = n.links
     lines = n.lines
     line_widths = lines.s_nom_opt - lines.s_nom
     link_widths = links.p_nom_opt - links.p_nom
@@ -180,9 +176,6 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
         link_widths = links.p_nom_opt
         linewidth_factor = 50
         line_lower_threshold = 0.
-#     else: 
-#         line_widths = [0]*len(n.links.query("capital_cost == 240000"))
-#         link_widths = [0]*len(n.links.query("capital_cost == 240000"))
         
     line_widths[line_widths < line_lower_threshold] = 0.
     link_widths[link_widths < line_lower_threshold] = 0.
@@ -196,11 +189,13 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
            link_colors=ac_color,
            line_widths=line_widths / linewidth_factor,
            link_widths=link_widths / linewidth_factor,
-           ax=ax,  boundaries=(n.buses.x[n.buses.x>0].min()-5, 
+           ax=ax,
+           boundaries=(n.buses.x[n.buses.x>0].min()-5, 
                                n.buses.x[n.buses.x>0].max()+5, 
                                n.buses.y[n.buses.y>0].min()-5, 
                                n.buses.y[n.buses.y>0].max()+5),
            color_geomap={'ocean': 'lightblue', 'land': "palegoldenrod"})
+
     for i in technologies:
         ax.plot([0,0],[1,1],label=i,color=tech_colors[i],lw=5)
     fig.legend(loc='center right', frameon=False,borderaxespad=1)
@@ -208,7 +203,7 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
     
     handles = make_legend_circles_for(
         [legend_size/10,legend_size], scale=bus_size_factor, facecolor="white")
-    str1 = ["    {} ".format(s) for s in (legend_size/10,legend_size)]
+    str1 = ["    {:10.0f} ".format(s) for s in (legend_size/10,legend_size)]
     labels = [x + unit_string for x in str1]
     l1 = ax.legend(handles, labels,
                    loc="upper left", bbox_to_anchor=(0.05, 0.96),
@@ -224,7 +219,7 @@ def plot_map(network, tech_colors, threshold=10,components=["links", "stores", "
                                   linewidth=s / linewidth_factor))
         labels.append("{} MW".format(s))
     l2 = ax.legend(handles, labels,
-                    loc="upper left", bbox_to_anchor=(0.2, 0.96),
+                    loc="upper left", bbox_to_anchor=(0.3, 0.96),
                     frameon=False,
                     labelspacing=4, handletextpad=1.5,
                     title='')
